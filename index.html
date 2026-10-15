@@ -1,0 +1,336 @@
+# ==================================================
+# Game: Chiikawa Tìm Chìa Khóa — Có Âm Thanh
+# Giống: https://oibking.itch.io/chiikawa-game
+# Sinh viên: _______________
+# Lớp: _______________
+# ==================================================
+
+import pygame
+import sys
+import random
+import math
+
+# === Khởi tạo ===
+pygame.init()
+pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=256)
+
+# === Màn hình ===
+CHIEU_RONG = 900
+CHIEU_CAO = 550
+man_hanh = pygame.display.set_mode((CHIEU_RONG, CHIEU_CAO))
+pygame.display.set_caption("🔑 CHIIKAWA — Tìm Chìa Khóa CÓ ÂM THANH 🔊")
+
+# === Màu sắc ===
+TRANG = (255, 255, 255)
+XANH_NHE = (204, 255, 255)
+VANG = (255, 215, 0)
+VANG_NHE = (255, 255, 204)
+XANH_LA = (153, 255, 153)
+XANH_DAM = (51, 153, 51)
+NAU = (139, 69, 19)
+DO = (255, 80, 80)
+
+# === Trạng thái ===
+MAN_HINH_MO_DAU = 0
+SANH_CHO = 1
+DANG_CHOI = 2
+KE_THUC_MUC = 3
+KET_THUC = 4
+trang_thai = MAN_HINH_MO_DAU
+
+# === Nhân vật ===
+nv_rong = 45
+nv_cao = 55
+nv_x = 50
+nv_y = CHIEU_CAO - nv_cao - 80
+toc_do_chay = 4
+toc_do_nhay = 11
+trong_luc = 0.65
+van_toc_y = 0
+dang_dat = True
+
+# === Màn chơi ===
+muc_choi = 1
+so_chia_khoa_can = 3
+so_chia_khoa_da = 0
+cua_da_mo = False
+
+# === Nền tảng ===
+san_dau = CHIEU_CAO - 70
+nen_tang = [
+    pygame.Rect(0, san_dau, CHIEU_RONG, 70),
+    pygame.Rect(120, 420, 140, 20),
+    pygame.Rect(350, 360, 120, 20),
+    pygame.Rect(580, 300, 150, 20),
+    pygame.Rect(180, 250, 100, 20),
+    pygame.Rect(500, 190, 130, 20),
+]
+
+# === Đồ vật & Kẻ địch ===
+cua_ra = pygame.Rect(CHIEU_RONG - 85, CHIEU_CAO - 145, 65, 85)
+chia_khoa_list = []
+quai_vat_list = []
+
+# === Font ===
+font_lon = pygame.font.Font(None, 52)
+font_vua = pygame.font.Font(None, 36)
+font_nho = pygame.font.Font(None, 28)
+dong_ho = pygame.time.Clock()
+
+# ==================================================
+# HỆ THỐNG ÂM THANH — TẠO TRONG CODE, KHÔNG CẦN FILE
+# ==================================================
+def tao_tieng(dau, cuoi, thoi_gian=0.15, am_luong=0.3):
+    """Tạo âm thanh giảm tần số mượt mà"""
+    tan_so = 44100
+    do_dai = int(tan_so * thoi_gian)
+    du_lieu = bytearray()
+    for i in range(do_dai):
+        t = i / tan_so
+        ti_le = i / do_dai
+        f = dau + (cuoi - dau) * ti_le
+        gia_tri = int(math.sin(2 * math.pi * f * t) * 32767 * am_luong * (1 - ti_le ** 1.5))
+        du_lieu += gia_tri.to_bytes(2, byteorder='little', signed=True)
+        du_lieu += gia_tri.to_bytes(2, byteorder='little', signed=True)
+    return pygame.mixer.Sound(buffer=du_lieu)
+
+# Tạo tất cả tiếng
+tieng_nhay = tao_tieng(400, 900, 0.12, 0.25)
+tieng_lay_chia_khoa = tao_tieng(523, 1047, 0.2, 0.3)
+tieng_mo_cua = tao_tieng(350, 700, 0.3, 0.3)
+tieng_qua_muc = tao_tieng(500, 1000, 0.25, 0.3)
+tieng_thua = tao_tieng(400, 100, 0.5, 0.35)
+
+# ==================================================
+# VẼ NHÂN VẬT & ĐỒ VẬT
+# ==================================================
+def ve_chiikawa(x, y, kich_thuoc=1.0):
+    k = kich_thuoc
+    pygame.draw.ellipse(man_hanh, VANG_NHE, (int(x+5*k), int(y+18*k), int(38*k), int(40*k)))
+    pygame.draw.circle(man_hanh, VANG_NHE, (int(x+24*k), int(y+18*k)), int(22*k))
+    pygame.draw.ellipse(man_hanh, VANG_NHE, (int(x+4*k), int(y+4*k), int(14*k), int(18*k)))
+    pygame.draw.ellipse(man_hanh, VANG_NHE, (int(x+36*k), int(y+4*k), int(14*k), int(18*k)))
+    pygame.draw.arc(man_hanh, (0,0,0), (int(x+11*k), int(y+13*k), int(10*k), int(6*k)), 3.14, 6.28, 2)
+    pygame.draw.arc(man_hanh, (0,0,0), (int(x+29*k), int(y+13*k), int(10*k), int(6*k)), 3.14, 6.28, 2)
+    pygame.draw.circle(man_hanh, (255,153,153), (int(x+9*k), int(y+25*k)), int(5*k))
+    pygame.draw.circle(man_hanh, (255,153,153), (int(x+41*k), int(y+25*k)), int(5*k))
+    pygame.draw.arc(man_hanh, (100,100,100), (int(x+17*k), int(y+30*k), int(14*k), int(8*k)), 3.14, 6.28, 2)
+
+def ve_chia_khoa(vt):
+    x, y = vt
+    pygame.draw.circle(man_hanh, VANG, (x+10, y+10), 9, 2)
+    pygame.draw.rect(man_hanh, VANG, (x+8, y+17, 4, 18))
+    pygame.draw.rect(man_hanh, VANG, (x+10, y+28, 5, 3))
+    pygame.draw.rect(man_hanh, VANG, (x+10, y+23, 3, 3))
+
+def ve_quai(vt):
+    x, y = vt
+    pygame.draw.ellipse(man_hanh, DO, (x, y+8, 42, 38))
+    pygame.draw.circle(man_hanh, DO, (x+21, y+12), 20)
+    pygame.draw.circle(man_hanh, TRANG, (x+12, y+10), 6)
+    pygame.draw.circle(man_hanh, TRANG, (x+30, y+10), 6)
+    pygame.draw.circle(man_hanh, (0,0,0), (x+13, y+11), 2)
+    pygame.draw.circle(man_hanh, (0,0,0), (x+31, y+11), 2)
+    pygame.draw.polygon(man_hanh, (80,0,0), [(x+12, y+28), (x+18, y+33), (x+24, y+28)])
+    pygame.draw.polygon(man_hanh, (80,0,0), [(x+24, y+28), (x+30, y+33), (x+36, y+28)])
+
+def ve_cua(da_mo):
+    if not da_mo:
+        pygame.draw.rect(man_hanh, NAU, cua_ra)
+        pygame.draw.rect(man_hanh, VANG, (cua_ra.x+6, cua_ra.y+6, cua_ra.w-12, cua_ra.h-12), 3)
+        pygame.draw.circle(man_hanh, VANG, (cua_ra.x+cua_ra.w-14, cua_ra.y+cua_ra.h//2), 6)
+    else:
+        pygame.draw.rect(man_hanh, XANH_DAM, cua_ra)
+        pygame.draw.polygon(man_hanh, VANG, [(cua_ra.x+18, cua_ra.y+25), (cua_ra.x+33, cua_ra.y+15), (cua_ra.x+48, cua_ra.y+35)])
+
+def ve_boi_canh():
+    man_hanh.fill(XANH_NHE)
+    for i in range(5):
+        mx = 80 + i * 180
+        my = 50 + (i % 2) * 35
+        pygame.draw.circle(man_hanh, TRANG, (mx, my), 28)
+        pygame.draw.circle(man_hanh, TRANG, (mx+28, my-5), 20)
+        pygame.draw.circle(man_hanh, TRANG, (mx+52, my), 25)
+    for vt in nen_tang:
+        if vt.y == san_dau:
+            pygame.draw.rect(man_hanh, XANH_DAM, vt)
+        else:
+            pygame.draw.rect(man_hanh, (180,140,100), vt)
+            pygame.draw.rect(man_hanh, XANH_LA, (vt.x, vt.y, vt.w, 5))
+
+# === Tạo màn mới ===
+def tao_man_moi():
+    global chia_khoa_list, quai_vat_list, so_chia_khoa_da, cua_da_mo, nv_x, nv_y, van_toc_y, dang_dat
+    so_chia_khoa_da = 0
+    cua_da_mo = False
+    nv_x, nv_y = 50, CHIEU_CAO - nv_cao - 80
+    van_toc_y = 0
+    dang_dat = True
+    chia_khoa_list = [(170, 390), (400, 330), (630, 270)]
+    quai_vat_list = [
+        [250, san_dau-48, 1.5, 150, 500],
+        [600, san_dau-48, -2, 450, 800]
+    ]
+
+def kiem_tra_nen(x, y, rong, cao):
+    for vt in nen_tang:
+        if y + cao >= vt.y and y + cao <= vt.y + 12 and x + rong > vt.x and x < vt.x + vt.w and van_toc_y >= 0:
+            return vt.y - cao
+    return None
+
+def reset_game():
+    global muc_choi
+    muc_choi = 1
+    tao_man_moi()
+
+tao_man_moi()
+
+# === VÒNG LẶP CHÍNH ===
+dang_chay = True
+while dang_chay:
+    phim = pygame.key.get_pressed()
+
+    # MÀN HÌNH MỞ ĐẦU
+    if trang_thai == MAN_HINH_MO_DAU:
+        ve_boi_canh()
+        t1 = font_lon.render("🔑 CHIIKAWA TÌM CHÌA KHÓA — CÓ ÂM THANH 🔊", True, (102, 51, 0))
+        t2 = font_vua.render("Thu thập chìa khóa → Mở cửa → Tránh quái vật → Qua màn!", True, (80,60,40))
+        t3 = font_nho.render("Nhấn SPACE để bắt đầu", True, (60,60,60))
+        man_hanh.blit(t1, (CHIEU_RONG//2 - t1.get_width()//2, 120))
+        man_hanh.blit(t2, (CHIEU_RONG//2 - t2.get_width()//2, 200))
+        man_hanh.blit(t3, (CHIEU_RONG//2 - t3.get_width()//2, 280))
+        ve_chiikawa(CHIEU_RONG//2 - 25, 340, 1.3)
+        
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT: dang_chay = False
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
+                trang_thai = SANH_CHO
+
+    # SẢNH CHỜ
+    elif trang_thai == SANH_CHO:
+        ve_boi_canh()
+        t1 = font_lon.render(f"🏃 MÀN {muc_choi} 🏃", True, (102, 51, 0))
+        t2 = font_vua.render(f"Thu thập: {so_chia_khoa_da}/{so_chia_khoa_can} 🔑", True, (180,140,0))
+        t3 = font_nho.render("← → Di chuyển | SPACE Nhảy", True, (60,60,60))
+        man_hanh.blit(t1, (CHIEU_RONG//2 - t1.get_width()//2, 100))
+        man_hanh.blit(t2, (CHIEU_RONG//2 - t2.get_width()//2, 170))
+        man_hanh.blit(t3, (CHIEU_RONG//2 - t3.get_width()//2, 380))
+        ve_chiikawa(CHIEU_RONG//2 - 25, 220, 1.4)
+        
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT: dang_chay = False
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
+                trang_thai = DANG_CHOI
+
+    # ĐANG CHƠI
+    elif trang_thai == DANG_CHOI:
+        if phim[pygame.K_LEFT]: nv_x -= toc_do_chay
+        if phim[pygame.K_RIGHT]: nv_x += toc_do_chay
+        nv_x = max(0, min(CHIEU_RONG - nv_rong, nv_x))
+        
+        if phim[pygame.K_SPACE] and dang_dat:
+            van_toc_y = -toc_do_nhay
+            dang_dat = False
+            tieng_nhay.play()  # 🔊 Nhảy có tiếng
+        
+        van_toc_y += trong_luc
+        nv_y += van_toc_y
+        mat_nen = kiem_tra_nen(nv_x, nv_y, nv_rong, nv_cao)
+        if mat_nen:
+            nv_y = mat_nen
+            van_toc_y = 0
+            dang_dat = True
+        
+        # Quái vật đi lại
+        for q in quai_vat_list:
+            q[0] += q[2]
+            if q[0] < q[3] or q[0] > q[4]:
+                q[2] = -q[2]
+        
+        # Lấy chìa khóa — có tiếng
+        for vt in chia_khoa_list[:]:
+            if nv_x < vt[0]+22 and nv_x+nv_rong > vt[0] and nv_y < vt[1]+32 and nv_y+nv_cao > vt[1]:
+                chia_khoa_list.remove(vt)
+                so_chia_khoa_da += 1
+                tieng_lay_chia_khoa.play()  # 🔊 Lấy chìa khóa có tiếng
+        
+        # Mở cửa — có tiếng
+        if so_chia_khoa_da >= so_chia_khoa_can and not cua_da_mo:
+            cua_da_mo = True
+            tieng_mo_cua.play()  # 🔊 Mở cửa có tiếng
+        
+        # Qua màn — có tiếng
+        if cua_da_mo and nv_x+nv_rong > cua_ra.x and nv_x < cua_ra.x+cua_ra.w and nv_y+nv_cao > cua_ra.y:
+            muc_choi += 1
+            tieng_qua_muc.play()  # 🔊 Qua màn có tiếng
+            tao_man_moi()
+            trang_thai = KE_THUC_MUC
+        
+        # Va chạm quái — có tiếng thua
+        hop_nv = pygame.Rect(nv_x+10, nv_y+10, nv_rong-20, nv_cao-20)
+        for q in quai_vat_list:
+            hop_q = pygame.Rect(q[0]+5, q[1]+5, 32, 32)
+            if hop_nv.colliderect(hop_q):
+                tieng_thua.play()  # 🔊 Thua có tiếng
+                trang_thai = KET_THUC
+        
+        # Vẽ mọi thứ
+        ve_boi_canh()
+        ve_cua(cua_da_mo)
+        for vt in chia_khoa_list: ve_chia_khoa(vt)
+        for q in quai_vat_list: ve_quai(q)
+        ve_chiikawa(nv_x, nv_y, 1.0)
+        
+        t_muc = font_vua.render(f"Màn {muc_choi}", True, (102, 51, 0))
+        t_khoa = font_vua.render(f"🔑 {so_chia_khoa_da}/{so_chia_khoa_can}", True, (180,140,0))
+        man_hanh.blit(t_muc, (15, 10))
+        man_hanh.blit(t_khoa, (15, 45))
+        
+        if cua_da_mo:
+            t_bao = font_vua.render("✅ CỬA ĐÃ MỞ! Đi vào bên phải!", True, (0,150,0))
+            man_hanh.blit(t_bao, (CHIEU_RONG//2 - t_bao.get_width()//2, 10))
+        
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT: dang_chay = False
+
+    # KẾT THÚC MÀN
+    elif trang_thai == KE_THUC_MUC:
+        ve_boi_canh()
+        t1 = font_lon.render(f"🎉 HOÀN THÀNH MÀN {muc_choi-1}! 🎉", True, (0,150,0))
+        t2 = font_vua.render(f"Đang chuẩn bị màn {muc_choi}...", True, (80,60,40))
+        t3 = font_nho.render("SPACE để tiếp tục", True, (60,60,60))
+        man_hanh.blit(t1, (CHIEU_RONG//2 - t1.get_width()//2, 150))
+        man_hanh.blit(t2, (CHIEU_RONG//2 - t2.get_width()//2, 220))
+        man_hanh.blit(t3, (CHIEU_RONG//2 - t3.get_width()//2, 300))
+        ve_chiikawa(CHIEU_RONG//2 - 25, 360, 1.2)
+        
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT: dang_chay = False
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
+                trang_thai = DANG_CHOI
+
+    # KẾT THÚC GAME
+    elif trang_thai == KET_THUC:
+        ve_boi_canh()
+        t1 = font_lon.render("💔 Bị quái vật bắt rồi!", True, (204, 0, 0))
+        t2 = font_vua.render(f"Đã vượt qua: {muc_choi-1} màn", True, (102, 51, 0))
+        t3 = font_nho.render("SPACE=Chơi lại | Q=Thoát", True, (60,60,60))
+        man_hanh.blit(t1, (CHIEU_RONG//2 - t1.get_width()//2, 140))
+        man_hanh.blit(t2, (CHIEU_RONG//2 - t2.get_width()//2, 210))
+        man_hanh.blit(t3, (CHIEU_RONG//2 - t3.get_width()//2, 300))
+        ve_chiikawa(CHIEU_RONG//2 - 25, 360, 1.1)
+        
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT: dang_chay = False
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_SPACE:
+                    reset_game()
+                    trang_thai = SANH_CHO
+                if e.key == pygame.K_q:
+                    dang_chay = False
+
+    pygame.display.flip()
+    dong_ho.tick(60)
+
+pygame.quit()
+sys.exit()
